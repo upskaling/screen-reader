@@ -1,0 +1,76 @@
+#!/bin/bash
+# -*- coding: utf-8 -*-
+# vim:fileencoding=utf-8
+set -e
+
+_engine='bing' # google bing yandex
+_user_agent='Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0'
+
+_lock='/var/lock/screen-reader.lock'
+
+if [ -f "${_lock}" ]; then
+    echo 'stop'
+    spd-say --cancel
+    #~_lock_hd=$(head -1 "${_lock}")
+    #~pkill -P "${_lock_hd}"
+    #~kill -9 "${_lock_hd}"
+    #~kill ${_lock_hd}
+    rm "${_lock}"
+    exit
+fi
+
+echo "${$}" >>"${_lock}"
+
+lsFunc() {
+    xclip -out |
+        fmt -u -w 1500 |
+        spd-say --rate 100 --pitch -10 --volume -20 --wait --pipe-mode
+}
+
+tlFunc() {
+    xclip -out |
+        fmt -u -w 1500 |
+        trans -brief -user-agent "${_user_agent}" -engine "${_engine}" en:fr |
+        spd-say --rate 100 --pitch -10 --volume -20 --wait --pipe-mode
+}
+
+stopFunc() {
+    spd-say --cancel
+    killall spd-say
+}
+
+testFunc() {
+    xclip -out |
+        fmt -u -w 1500 |
+        cat
+}
+
+helpFunc() {
+    echo "usage: $0 [-h] [-s] [--ls] [--tl]
+
+les réflexions
+
+optional arguments:
+  -h, --help  show this help message and exit
+  -s          stop
+  --ls        LecteurdeSelection
+  --tl        LecteurdeSelection + TR
+"
+    exit 0
+}
+
+if [ "${#}" = "0" ]; then
+    helpFunc
+fi
+
+# See how we were called.
+case "${1}" in
+"--ls") lsFunc ;;
+"--tl") tlFunc ;;
+"-s" | "stop") stopFunc ;;
+"-t" | "test") testFunc ;;
+"-h" | "help") helpFunc ;;
+*) helpFunc ;;
+esac
+
+rm "${_lock}"
