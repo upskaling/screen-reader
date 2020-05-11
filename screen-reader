@@ -1,37 +1,56 @@
 #!/bin/bash
-# -*- coding: utf-8 -*-
+# coding: utf-8
 # vim:fileencoding=utf-8
-set -e
+set -eu
 
-_engine='bing' # google bing yandex
-_user_agent='Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:65.0) Gecko/20100101 Firefox/65.0'
-
-_lock='/var/lock/screen-reader.lock'
+readonly _lock='/var/lock/screen-reader.lock'
 
 if [ -f "${_lock}" ]; then
     echo 'stop'
     spd-say --cancel
-    #~_lock_hd=$(head -1 "${_lock}")
-    #~pkill -P "${_lock_hd}"
-    #~kill -9 "${_lock_hd}"
-    #~kill ${_lock_hd}
-    rm "${_lock}"
+    rm -f "${_lock}"
     exit
 fi
 
 echo "${$}" >>"${_lock}"
 
+startFunc() {
+    xclip -out | fmt -u -w 1500
+}
+
+spd-sayFunc() {
+    # espeak -v mb-fr4 -s 320 -p 35 -q --stdin --pho | mbrola -v 1 -e /usr/share/mbrola/fr1/fr1 - -.au | aplay
+    spd-say --rate 100 --pitch -10 --volume -20 --wait --pipe-mode
+}
+
 lsFunc() {
-    xclip -out |
-        fmt -u -w 1500 |
-        spd-say --rate 100 --pitch -10 --volume -20 --wait --pipe-mode
+    startFunc | spd-sayFunc
 }
 
 tlFunc() {
-    xclip -out |
-        fmt -u -w 1500 |
-        trans -brief -user-agent "${_user_agent}" -engine "${_engine}" en:fr |
-        spd-say --rate 100 --pitch -10 --volume -20 --wait --pipe-mode
+    startFunc |
+        transFunc |
+        spd-sayFunc
+}
+
+transFunc() {
+    readonly _engine='google' # google bing yandex
+    readonly _user_agent='Mozilla/5.0 (Windows NT 10.0; rv:68.0) Gecko/20100101 Firefox/68.0'
+    (trans -brief -no-browser -user-agent "${_user_agent}" -engine "${_engine}" en:fr || echo "[ERREUR] Oups! Quelque chose s'est mal passé et je ne peux pas le traduire pour vous :(.")
+}
+
+screenshooterFunc() {
+    xfce4-screenshooter -r -s tmp.png
+    tesseract -l fra tmp.png tmp
+    cat tmp.txt | spd-sayFunc
+    rm tmp.png tmp.txt
+}
+
+screenshooterTLFunc() {
+    xfce4-screenshooter -r -s tmp.png
+    tesseract -l eng tmp.png tmp
+    cat tmp.txt | transFunc | spd-sayFunc
+    rm tmp.txt tmp.png
 }
 
 stopFunc() {
@@ -39,23 +58,19 @@ stopFunc() {
     killall spd-say
 }
 
-testFunc() {
-    xclip -out |
-        fmt -u -w 1500 |
-        cat
-}
-
 helpFunc() {
-    echo "usage: $0 [-h] [-s] [--ls] [--tl]
-
-les réflexions
+    cat <<EOF
+usage: $0 [-h] [-s] [--ls] [--tl]
 
 optional arguments:
-  -h, --help  show this help message and exit
-  -s          stop
-  --ls        LecteurdeSelection
-  --tl        LecteurdeSelection + TR
-"
+  -h, --help  afficher ce message d'aide et quitter
+  -s          arrête la lecture
+  --ls        Lecteur de Selection
+  --tl        traduction + Lecteur de Selection
+  --ocr       reconnaissance optique de caractères + Lecteur
+  --ocrtl     reconnaissance optique de caractères + traduction + Lecteur
+EOF
+
     exit 0
 }
 
@@ -67,6 +82,8 @@ fi
 case "${1}" in
 "--ls") lsFunc ;;
 "--tl") tlFunc ;;
+"--ocr") screenshooterFunc ;;
+"--ocrtl") screenshooterTLFunc ;;
 "-s" | "stop") stopFunc ;;
 "-t" | "test") testFunc ;;
 "-h" | "help") helpFunc ;;
