@@ -1,3 +1,4 @@
+:warning: This project is no longer maintained. The new project and https://github.com/upskaling/gSpeech
 # screen-reader
 
 ## installing
